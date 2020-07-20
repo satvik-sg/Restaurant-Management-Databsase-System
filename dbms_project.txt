@@ -1,0 +1,296 @@
+	
+
+	DROP TABLE EMPLOYEE;
+	CREATE TABLE EMPLOYEE (
+	eid INT NOT NULL ,
+	firstName VARCHAR(25) NOT NULL,
+	lastName VARCHAR(25) NOT NULL,
+	position VARCHAR(25) NOT NULL,
+	email VARCHAR(25) NOT NULL,
+	lastWorked DATE,
+	PRIMARY KEY (eid));
+
+--sequence
+drop sequence test_sequence;
+CREATE SEQUENCE test_sequence
+  START WITH 1
+ INCREMENT BY 1;
+   --  TRIGGER FOR AUTO_INCREMENT
+CREATE OR REPLACE TRIGGER test_trigger
+ BEFORE INSERT
+    ON EMPLOYEE
+    REFERENCING NEW AS NEW
+   FOR EACH ROW
+    BEGIN
+    SELECT test_sequence.nextval INTO :NEW.EID FROM dual;
+  END;
+
+	
+DROP TABLE MENU;
+	CREATE TABLE MENU (
+	mID INT NOT NULL,
+	itemName VARCHAR(50) UNIQUE NOT NULL,
+	description VARCHAR(140) NOT NULL,
+	price DECIMAL(10,2) NOT NULL,
+	type VARCHAR(15) NOT NULL,
+	PRIMARY KEY (mid) );
+
+--sequence
+drop sequence test_sequence4;
+CREATE SEQUENCE test_sequence4
+  START WITH 1
+ INCREMENT BY 1;
+
+
+   --  TRIGGER FOR AUTO_INCREMENT
+CREATE OR REPLACE TRIGGER test_trigger4
+ BEFORE INSERT
+    ON MENU
+    REFERENCING NEW AS NEW
+   FOR EACH ROW
+    BEGIN
+    SELECT test_sequence4.nextval INTO :NEW.MID FROM dual;
+  END;
+
+
+
+	
+
+	DROP TABLE CUSTOMER ;
+	CREATE TABLE CUSTOMER (
+	cid INT NOT NULL ,
+	firstName VARCHAR(25) NOT NULL,
+	lastName VARCHAR(25) NOT NULL,
+	email VARCHAR(25) NOT NULL,
+	discount INT DEFAULT 0,
+	updatedAt TIMESTAMP DEFAULT SYSTIMESTAMP,
+	mid int not null,
+	PRIMARY KEY (cid), 
+	FOREIGN KEY (mID) REFERENCES menu(mID) );
+
+--sequence
+drop sequence test_sequence1;
+
+CREATE SEQUENCE test_sequence1
+  START WITH 1
+ INCREMENT BY 1;
+	
+   --  TRIGGER FOR AUTO_INCREMENT
+CREATE OR REPLACE TRIGGER test_trigger1
+ BEFORE INSERT
+    ON CUSTOMER
+    REFERENCING NEW AS NEW
+   FOR EACH ROW
+    BEGIN
+    SELECT test_sequence1.nextval INTO :NEW.CID FROM dual;
+  END;
+
+
+
+
+	
+
+	DROP TABLE ARC_CUSTOMER ;
+	CREATE TABLE ARC_CUSTOMER (
+        cid INT NOT NULL,
+        firstName VARCHAR(25) NOT NULL,
+        lastName VARCHAR(25) NOT NULL,
+        email VARCHAR(25) NOT NULL,
+        discount INT DEFAULT 0,
+        updatedAt TIMESTAMP,
+        mid int not null,
+        PRIMARY KEY (cid),
+        FOREIGN KEY (mID) REFERENCES menu(mID) );
+
+
+--sequence
+drop sequence test_sequence2;
+
+CREATE SEQUENCE test_sequence2
+  START WITH 1
+ INCREMENT BY 1;
+
+
+   --  TRIGGER FOR AUTO_INCREMENT
+CREATE OR REPLACE TRIGGER test_trigger2
+ BEFORE INSERT
+    ON ARC_CUSTOMER
+    REFERENCING NEW AS NEW
+   FOR EACH ROW
+    BEGIN
+    SELECT test_sequence2.nextval INTO :NEW.CID FROM dual;
+  END;
+
+	
+
+	
+
+	DROP TABLE aTABLE ;
+	CREATE TABLE aTABLE (
+	tID INT NOT NULL,
+	eID INT,
+	seats INT NOT NULL,
+	available CHAR(1) NOT NULL,
+	PRIMARY KEY (tID) );
+
+--sequence
+drop sequence test_sequence3;
+
+CREATE SEQUENCE test_sequence3
+  START WITH 1
+ INCREMENT BY 1;
+	
+   --  TRIGGER FOR AUTO_INCREMENT
+CREATE OR REPLACE TRIGGER test_trigger3
+ BEFORE INSERT
+    ON aTABLE
+    REFERENCING NEW AS NEW
+   FOR EACH ROW
+    BEGIN
+    SELECT test_sequence3.nextval INTO :NEW.TID FROM dual;
+  END;
+
+		
+
+	DROP TABLE RATING;
+	CREATE TABLE RATING (
+	cID INT NOT NULL,
+	stars INT,
+	feedback VARCHAR(140),
+	PRIMARY KEY (cID));
+	
+
+	
+
+	DROP TABLE RESERVATION;
+	CREATE TABLE RESERVATION (
+	tID INT NOT NULL,
+	cID INT NOT NULL,
+	partySize INT NOT NULL,
+	reservationDate DATE NOT NULL,
+	PRIMARY KEY (tID, cID, reservationDate),
+	FOREIGN KEY (tID) REFERENCES aTABLE(tID), 
+	FOREIGN KEY (cID) REFERENCES CUSTOMER(cID) ON DELETE CASCADE
+	);
+	
+
+	/* triggers */
+	/*Give discounts to customers who give 5-stars ratings*/
+
+
+DROP TRIGGER newHighRater;
+	CREATE TRIGGER newHighRater
+	AFTER INSERT ON Rating
+	FOR EACH ROW
+	BEGIN
+	IF (:new.stars=5) THEN 
+	UPDATE Customer Set discount=discount+10 WHERE cID=:new.cID;
+	END IF;
+	END;
+	
+
+
+
+
+
+/* Maintain discounts for 5-star raters only */
+DROP TRIGGER ratingUpdate;
+	
+CREATE TRIGGER ratingUpdate
+AFTER UPDATE ON Rating
+FOR EACH ROW
+BEGIN
+	IF (:old.stars=5 AND :new.stars<>5)
+	THEN UPDATE Customer Set discount=discount-10 WHERE cID=:new.cID;
+    END IF;
+	IF (:new.stars=5 AND :old.stars<>5)
+	THEN UPDATE Customer Set discount=discount+10 WHERE cID=:new.cID;
+	END IF;
+END ;
+
+
+	/*Update updatedAt when reservation is made*/
+
+	DROP TRIGGER visiting;
+CREATE TRIGGER visiting
+AFTER INSERT ON Reservation
+FOR EACH ROW
+BEGIN
+UPDATE Customer Set updatedAt = SYSTIMESTAMP WHERE cID=:NEW.cID;
+END;
+/	
+	
+	
+	
+	
+
+
+	/*Update updatedAt when reservation is changed*/
+	DROP TRIGGER visitUpdate;
+	CREATE TRIGGER visitUpdate
+	AFTER UPDATE ON Reservation
+	FOR EACH ROW
+	BEGIN
+	UPDATE Customer Set updatedAt = SYSTIMESTAMP WHERE cID=:NEW.cID;
+	END;
+	
+
+	
+
+	/* Procedure */
+	/* Archive customers */
+	drop PROCEDURE archiveCustomers;
+	CREATE PROCEDURE archiveCustomers(oldDate in DATE)
+as
+BEGIN
+
+     INSERT INTO arc_Customer(SELECT * FROM Customer WHERE updatedAt<oldDate);
+    DELETE FROM Customer WHERE updatedAt<oldDate;
+    
+END;
+
+
+	/* Temporary table for dates */
+
+drop table dates;
+	  CREATE TABLE dates(adate DATE);
+
+   CREATE or replace PROCEDURE weekDates
+    as
+    tempdate DATE DEFAULT sysdate;
+    BEGIN
+       WHILE tempdate < sysdate + 7
+    LOOP
+        INSERT INTO dates VALUES (tempdate);
+     tempdate := tempdate+1;
+       END LOOP;
+  END;
+
+drop table bill;
+ create table bill(cidb number,midb number,firstnameb varchar(10),priceb DECIMAL(10,2) ,discountb number,totalb decimal(10,2));
+
+/* CREATE BILL */
+    create or replace procedure totalbill
+    as
+    begin
+    insert into bill(cidb,midb,firstnameb,priceb,discountb,totalb) select c.cid,c.mid,c.firstname,m.price,c.discount,0 from customer c,menu m where c.mid=m.mid;
+    end;
+
+/* CREATE  total BILL */
+	
+     create or replace procedure assigntotal
+       as
+       rec bill%rowtype;
+        cursor c1 is select * from bill;
+        begin
+        open c1;
+        loop
+        fetch c1 into rec;
+        rec.totalb:=rec.priceb-rec.discountb;
+     update bill set totalb=rec.totalb where cidb=rec.cidb;
+      exit when c1%notfound;
+      end loop;
+      close c1;
+     end assigntotal;
+
+
